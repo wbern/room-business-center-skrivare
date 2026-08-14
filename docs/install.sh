@@ -16,9 +16,9 @@
 #   3. Installs the km9100auth CUPS backend (Perl) that injects the PJL auth
 #      header — and strips the KMCOETYPE line that otherwise makes GUI prints
 #      fail with "Login Error".
-#   4. Creates the Room_Business_Center_Olivetti_MF224 queue with those
-#      credentials, makes it the
-#      default, and removes any no-auth duplicate macOS auto-created.
+#   4. Creates the print queue with those credentials, shown to the user as
+#      "ROOM Business Center (Olivetti MF224)", makes it the default, and
+#      removes any no-auth duplicate macOS auto-created.
 #   5. Prints a confirmation page.
 
 set -euo pipefail
@@ -30,6 +30,11 @@ DRIVER_URL="${PRINTER_DRIVER_URL:-$SITE/km-c250i-driver.pkg}" # KM driver pkg/dm
 PRINTER_HOST="${PRINTER_HOST:-192.168.9.15}"
 PRINTER_PORT="${PRINTER_PORT:-9100}"
 QUEUE_NAME="${PRINTER_QUEUE:-Room_Business_Center_Olivetti_MF224}"
+# CUPS queue names cannot contain spaces, so the technical name above stays
+# as-is. DISPLAY_NAME is the printer's description, and that is what macOS
+# actually shows in the Print dialog and in Printers & Scanners - so users
+# see the same friendly name as Windows users do.
+DISPLAY_NAME="ROOM Business Center (Olivetti MF224)"
 # -----------------------------------------------------------------------------
 
 PPD_GZ="/Library/Printers/PPDs/Contents/Resources/KONICAMINOLTAC250i.gz"
@@ -52,7 +57,7 @@ while [[ $# -gt 0 ]]; do
         --no-test)     RUN_TEST=0; shift ;;
         -h|--help)
             printf 'Usage: install.sh [-u USER] [-p PIN] [--no-test]\n\n'
-            printf 'Installs the Room_Business_Center_Olivetti_MF224 printer with per-user\n'
+            printf 'Installs the ROOM Business Center (Olivetti MF224) printer with per-user\n'
             printf 'authentication. With no -u/-p it prompts on the terminal.\n'
             exit 0 ;;
         *) die "unknown argument: $1" ;;
@@ -142,7 +147,7 @@ while read -r line; do
 done < <(lpstat -v 2>/dev/null)
 
 # Configure the queue with the user's credentials.
-info "configuring the printer queue '$QUEUE_NAME'…"
+info "configuring the printer '$DISPLAY_NAME'…"
 enc() { perl -MURI::Escape -e 'print uri_escape($ARGV[0], "^A-Za-z0-9")' "$1" 2>/dev/null \
         || perl -e 'my $s=$ARGV[0]; $s=~s/([^A-Za-z0-9])/sprintf("%%%02X",ord($1))/ge; print $s' "$1"; }
 DEVICE_URI="km9100auth://$(enc "$USER_NAME"):$(enc "$USER_PIN")@${PRINTER_HOST}:${PRINTER_PORT}"
@@ -154,7 +159,7 @@ gunzip -kc "$PPD_GZ" > "$PPD_TMP"
 # print dialog). The auth that actually reaches the printer is the PJL block the
 # km9100auth backend injects — that backend is the source of truth, not these.
 sudo lpadmin -p "$QUEUE_NAME" -E -v "$DEVICE_URI" -P "$PPD_TMP" \
-    -D "Room_Business_Center_Olivetti_MF224" -L "Office" \
+    -D "$DISPLAY_NAME" -L "ROOM Business Center" \
     -o KMAuthentication=True -o UserType=Private \
     -o CertServerType=Number -o CertServerNum=Device
 sudo cupsenable "$QUEUE_NAME" >/dev/null 2>&1 || true
@@ -183,4 +188,4 @@ else
     printf '\n%s%s All set!%s\n' "$c_bold" "$c_green" "$c_off"
 fi
 printf 'Print from any app with %sCmd+P%s and choose %s%s%s.\n\n' \
-       "$c_bold" "$c_off" "$c_bold" "$QUEUE_NAME" "$c_off"
+       "$c_bold" "$c_off" "$c_bold" "$DISPLAY_NAME" "$c_off"

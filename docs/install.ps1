@@ -54,7 +54,7 @@ param(
     [string]$Password,
     [string]$PrinterIP   = "192.168.9.15",
     [int]   $PrinterPort = 9100,
-    [string]$PrinterName = "Room_Business_Center_Olivetti_MF224",
+    [string]$PrinterName = "ROOM Business Center (Olivetti MF224)",
     [ValidateSet("en","sv","")]
     [string]$Lang = "",
     [switch]$NoTest

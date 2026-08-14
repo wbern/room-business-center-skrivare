@@ -22,7 +22,7 @@
 # Fill in the auth dialog exactly as you did when it failed.
 
 param(
-    [string]$SourcePrinter = "Room_Business_Center_Olivetti_MF224",
+    [string]$SourcePrinter = "ROOM Business Center (Olivetti MF224)",
     [string]$CaptureName   = "PJL_CAPTURE",
     [int]   $ListenPort    = 9100,
     [int]   $TimeoutSec    = 300

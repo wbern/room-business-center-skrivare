@@ -72,7 +72,7 @@ All site files live under `docs/`.
   (convenient, but it lands in shell history). Leaving the PIN field blank omits
   `-p` from the command, and `install.sh` prompts for the PIN in Terminal
   instead. `install.sh` also removes the no-auth `_192_168_9_15`-style duplicate
-  queue macOS auto-creates and sets `Room_Business_Center_Olivetti_MF224` as the
+  queue macOS auto-creates and sets `ROOM Business Center (Olivetti MF224)` as the
   default. Those are the two things that broke printing originally.
 - **Windows auth — how it actually works.** The queue is a RAW TCP/9100 port: a
   bare socket with no auth challenge, so Windows Credential Manager is never

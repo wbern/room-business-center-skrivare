@@ -21,7 +21,7 @@
 # a file we publish on the web. Check the reminder below before you run it.
 
 param(
-    [string]$PrinterName = "Room_Business_Center_Olivetti_MF224",
+    [string]$PrinterName = "ROOM Business Center (Olivetti MF224)",
     # Desktop, not $PSScriptRoot — under `irm | iex` there is no script on disk.
     [string]$OutFile     = "$([Environment]::GetFolderPath('Desktop'))\printer-config.dat"
 )
