@@ -122,6 +122,19 @@ en = @{
     spooler_done    = "spooler restarted"
     driver_present  = "printer driver already installed ({0}) - skipping the 52 MB download"
     driver_dl       = "downloading the printer driver (one-time, ~52 MB)..."
+    disk_need       = "only {0} MB free on {2}, and the driver needs about {1} MB while it installs."
+    disk_scan       = "looking for files Windows can safely delete..."
+    disk_t_wintemp  = "Windows temporary files"
+    disk_t_usertemp = "your temporary files"
+    disk_t_update   = "downloaded Windows Update files (Windows re-downloads if needed)"
+    disk_t_do       = "update files cached for other PCs on the network"
+    disk_total      = "  Deleting these frees about {0} MB. None of it is yours - Windows recreates it as needed."
+    disk_ask        = "  Delete them? (y/n)"
+    disk_cleaning   = "cleaning up..."
+    disk_freed      = "freed {0} MB - {1} MB now free"
+    disk_skipped    = "left them alone."
+    disk_nothing    = "found nothing that's safe to delete automatically."
+    disk_bin_ask    = "  Still short. Empty the Recycle Bin too? This permanently deletes what's in it. (y/n)"
     disk_full       = "not enough free space on {2} - only {0} MB left, and installing the driver needs about {1} MB free while it works. Delete some files (Downloads, Recycle Bin, old videos) or run Disk Cleanup, then run this again. Nothing has been changed."
     disk_full_late  = "Windows ran out of disk space while installing the driver ({0} MB free on {1}). Free up about 1 GB - empty the Recycle Bin, clear Downloads, or run Disk Cleanup - then run this again. Nothing else is wrong with the setup."
     driver_dl_fail  = "couldn't download the driver from {0}. Check your connection and try again."
@@ -238,6 +251,19 @@ sv = @{
     spooler_done    = "utskriftshanteraren omstartad"
     driver_present  = "skrivardrivrutinen finns redan ({0}) - hoppar över nedladdningen på 52 MB"
     driver_dl       = "laddar ner skrivardrivrutinen (engångsjobb, ca 52 MB)..."
+    disk_need       = "bara {0} MB ledigt på {2}, och drivrutinen behöver ungefär {1} MB under installationen."
+    disk_scan       = "letar efter filer som Windows kan ta bort utan risk..."
+    disk_t_wintemp  = "tillfälliga Windows-filer"
+    disk_t_usertemp = "dina tillfälliga filer"
+    disk_t_update   = "nedladdade Windows Update-filer (Windows laddar ner igen vid behov)"
+    disk_t_do       = "uppdateringsfiler som cachats åt andra datorer i nätverket"
+    disk_total      = "  Att ta bort dem frigör ungefär {0} MB. Inget av det är ditt - Windows skapar det på nytt vid behov."
+    disk_ask        = "  Ta bort dem? (j/n)"
+    disk_cleaning   = "rensar..."
+    disk_freed      = "frigjorde {0} MB - {1} MB ledigt nu"
+    disk_skipped    = "lät dem vara."
+    disk_nothing    = "hittade inget som kan tas bort automatiskt utan risk."
+    disk_bin_ask    = "  Fortfarande för lite. Töm Papperskorgen också? Det raderar innehållet permanent. (j/n)"
     disk_full       = "för lite ledigt utrymme på {2} - bara {0} MB kvar, och drivrutinen behöver ungefär {1} MB ledigt under installationen. Ta bort några filer (Hämtade filer, Papperskorgen, gamla videor) eller kör Diskrensning och kör sedan det här igen. Inget har ändrats."
     disk_full_late  = "Windows fick slut på diskutrymme när drivrutinen installerades ({0} MB ledigt på {1}). Frigör ungefär 1 GB - töm Papperskorgen, rensa Hämtade filer eller kör Diskrensning - och kör sedan det här igen. Inget annat är fel med installationen."
     driver_dl_fail  = "kunde inte ladda ner drivrutinen från {0}. Kontrollera uppkopplingen och försök igen."
@@ -534,16 +560,95 @@ if ($resolvedDriver) {
     # (pnputil exit 112 / ERROR_DISK_FULL, with the real reason buried in
     # setupapi.dev.log), so fail early and say the actual number.
     $needMB = 1024
-    try {
-        $sysDrive = ($env:SystemDrive).TrimEnd(':')
-        $free = (Get-PSDrive -Name $sysDrive -ErrorAction Stop).Free
-        $freeMB = [math]::Round($free / 1MB)
-        if ($freeMB -lt $needMB) {
-            Write-Host ""
-            Die (T 'disk_full' @($freeMB, $needMB, $env:SystemDrive))
+    $sysDrive = ($env:SystemDrive).TrimEnd(':')
+    function Get-FreeMB {
+        try { return [math]::Round((Get-PSDrive -Name $sysDrive -ErrorAction Stop).Free / 1MB) }
+        catch { return -1 }
+    }
+
+    # Reclaimable locations. Everything here is data Windows itself regenerates:
+    # nothing the user created, nothing that uninstalls an update or a program.
+    #
+    # Deliberately NOT included:
+    #   * cleanmgr automation - it is GUI-bound, /verylowdisk is unreliable, and
+    #     it is widely reported to hang at 100% when run unattended.
+    #   * "Windows Update Cleanup" / previous installations (Windows.old) - only
+    #     reversible by reinstalling, far too destructive for a printer setup.
+    #   * DISM /StartComponentCleanup - slow, and it removes the ability to roll
+    #     back updates.
+    #   * Downloads, Documents, or anything else the user owns.
+    # The Recycle Bin IS the user's data, so it is asked for separately below.
+    function Get-FolderMB($path) {
+        if (-not (Test-Path $path)) { return 0 }
+        try {
+            $b = (Get-ChildItem $path -Recurse -Force -File -ErrorAction SilentlyContinue |
+                  Measure-Object -Property Length -Sum).Sum
+            return [math]::Round(($b) / 1MB)
+        } catch { return 0 }
+    }
+
+    $freeMB = Get-FreeMB
+    if ($freeMB -ge 0 -and $freeMB -lt $needMB) {
+        Write-Host ""
+        Warn (T 'disk_need' @($freeMB, $needMB, $env:SystemDrive))
+        Info (T 'disk_scan')
+
+        $targets = @(
+            @{ Label = (T 'disk_t_wintemp'); Path = (Join-Path $env:SystemRoot "Temp");                 Svc = $null },
+            @{ Label = (T 'disk_t_usertemp'); Path = $env:TEMP;                                          Svc = $null },
+            @{ Label = (T 'disk_t_update');   Path = (Join-Path $env:SystemRoot "SoftwareDistribution\Download"); Svc = "wuauserv" },
+            @{ Label = (T 'disk_t_do');       Path = (Join-Path $env:SystemRoot "ServiceProfiles\NetworkService\AppData\Local\Microsoft\Windows\DeliveryOptimization\Cache"); Svc = "DoSvc" }
+        )
+        foreach ($t in $targets) { $t.MB = Get-FolderMB $t.Path }
+        $found = @($targets | Where-Object { $_.MB -gt 0 })
+
+        if ($found.Count -eq 0) {
+            Warn (T 'disk_nothing')
+        } else {
+            # Sum by hand: in Windows PowerShell 5.1, Measure-Object -Property
+            # can't see hashtable keys (PS 7 can), and this has to run on 5.1.
+            $totalMB = 0
+            foreach ($t in $found) {
+                Write-Host ("    {0,6} MB  {1}" -f $t.MB, $t.Label)
+                $totalMB += $t.MB
+            }
+            Write-Host (T 'disk_total' @($totalMB)) -ForegroundColor White
+            $ans = (Read-Host (T 'disk_ask')).Trim().ToLower()
+            if ($ans -eq "y" -or $ans -eq "j") {
+                Info (T 'disk_cleaning')
+                foreach ($t in $found) {
+                    # Some caches are owned by a running service; stop it, clear,
+                    # start it again. Files still locked are skipped, not forced.
+                    if ($t.Svc) { try { Stop-Service $t.Svc -Force -ErrorAction SilentlyContinue } catch { } }
+                    try {
+                        Get-ChildItem $t.Path -Force -ErrorAction SilentlyContinue |
+                            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                    } catch { }
+                    if ($t.Svc) { try { Start-Service $t.Svc -ErrorAction SilentlyContinue } catch { } }
+                }
+                $after = Get-FreeMB
+                Ok (T 'disk_freed' @(($after - $freeMB), $after))
+                $freeMB = $after
+            } else {
+                Warn (T 'disk_skipped')
+            }
         }
-    } catch [System.Management.Automation.RuntimeException] {
-        # couldn't read the drive - not a reason to stop, just continue
+
+        # The Recycle Bin is the user's own deleted files, so it is a separate,
+        # explicit question with the consequence spelled out - never bundled in.
+        if ($freeMB -lt $needMB) {
+            $ans2 = (Read-Host (T 'disk_bin_ask')).Trim().ToLower()
+            if ($ans2 -eq "y" -or $ans2 -eq "j") {
+                try {
+                    Clear-RecycleBin -DriveLetter $sysDrive -Force -ErrorAction SilentlyContinue
+                    $after = Get-FreeMB
+                    Ok (T 'disk_freed' @(($after - $freeMB), $after))
+                    $freeMB = $after
+                } catch { }
+            }
+        }
+
+        if ($freeMB -lt $needMB) { Write-Host ""; Die (T 'disk_full' @($freeMB, $needMB, $env:SystemDrive)) }
     }
 
     Info (T 'driver_dl')
