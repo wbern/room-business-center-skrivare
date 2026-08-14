@@ -126,6 +126,10 @@ en = @{
     driver_corrupt  = "driver download looks corrupt ({0} missing). Try again."
     driver_dl_ok    = "driver downloaded"
     driver_install  = "installing the Universal PS driver..."
+    driver_register = "registering the driver with Windows..."
+    driver_registered = "driver registered as: {0}"
+    driver_tried    = "  Names tried:"
+    pnputil_said    = "  What pnputil reported:"
     pnputil_warn    = "pnputil returned {0} while adding the driver; continuing."
     driver_none     = "the driver installed but Windows didn't register a Universal PS driver. See the list above."
     drivers_known   = "  Drivers Windows currently knows about:"
@@ -233,6 +237,10 @@ sv = @{
     driver_corrupt  = "nedladdningen ser trasig ut ({0} saknas). Försök igen."
     driver_dl_ok    = "drivrutinen nedladdad"
     driver_install  = "installerar Universal PS-drivrutinen..."
+    driver_register = "registrerar drivrutinen i Windows..."
+    driver_registered = "drivrutinen registrerad som: {0}"
+    driver_tried    = "  Namn som testades:"
+    pnputil_said    = "  Vad pnputil rapporterade:"
     pnputil_warn    = "pnputil svarade {0} när drivrutinen lades till; fortsätter."
     driver_none     = "drivrutinen installerades men Windows registrerade ingen Universal PS-drivrutin. Se listan ovan."
     drivers_known   = "  Drivrutiner som Windows känner till just nu:"
@@ -534,10 +542,63 @@ if ($resolvedDriver) {
     # pnputil returns 0 (added), 259 (no new driver / already present) or 3010
     # (added, reboot required) on success-ish paths.
     if ($LASTEXITCODE -notin 0, 259, 3010) { Warn (T 'pnputil_warn' @($LASTEXITCODE)) }
+
+    # Staging the INF into the driver store is NOT enough. The print spooler
+    # keeps its own separate list, and Get-PrinterDriver / Add-Printer only see
+    # drivers registered with Add-PrinterDriver. On a machine that has never had
+    # the Konica package installed, skipping this is why the driver "installed"
+    # but Windows reported no Universal PS driver.
+    #
+    # The name to register is read from the INF rather than guessed: this INF
+    # declares "Generic Universal PS" with no version suffix, while the vendor's
+    # own installer registers "Generic Universal PS v3.9.12" and the Konica
+    # build "KONICA MINOLTA Universal PS". Parse first, then fall back.
+    if (-not (Resolve-KmDriver)) {
+        Info (T 'driver_register')
+        $infNames = @()
+        try {
+            $infNames = @(Get-Content $inf -ErrorAction Stop | ForEach-Object {
+                if ($_ -match '^\s*"([^"]+)"\s*=') { $Matches[1] }
+            } | Select-Object -Unique)
+        } catch { }
+        $candidates = @($infNames + @("Generic Universal PS", $DriverName, "KONICA MINOLTA Universal PS")) |
+            Where-Object { $_ } | Select-Object -Unique
+
+        # Prefer the copy pnputil staged into the driver store over our temp
+        # extraction: Add-PrinterDriver resolves names against the store, and the
+        # staged path is what it expects. Fall back to the temp INF.
+        $infPaths = @()
+        try {
+            $staged = Get-ChildItem "$env:SystemRoot\System32\DriverStore\FileRepository" -Recurse -Filter $DriverInf `
+                        -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($staged) { $infPaths += $staged.FullName }
+        } catch { }
+        $infPaths += $inf
+
+        :register foreach ($path in $infPaths) {
+            foreach ($cand in $candidates) {
+                try {
+                    Add-PrinterDriver -Name $cand -InfPath $path -ErrorAction Stop
+                    Ok (T 'driver_registered' @($cand))
+                    break register
+                } catch { }
+            }
+        }
+    }
+
     $resolvedDriver = Resolve-KmDriver
     if (-not $resolvedDriver) {
         Write-Host (T 'drivers_known') -ForegroundColor Yellow
         Get-PrinterDriver | Select-Object -ExpandProperty Name | ForEach-Object { Write-Host "    $_" }
+        if ($candidates) {
+            Write-Host (T 'driver_tried') -ForegroundColor Yellow
+            $candidates | ForEach-Object { Write-Host "    $_" }
+        }
+        # pnputil's text output says far more than its numeric exit code.
+        if ($pnp) {
+            Write-Host (T 'pnputil_said') -ForegroundColor Yellow
+            $pnp | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        }
         Die (T 'driver_none')
     }
     Ok (T 'driver_ok' @($resolvedDriver))
