@@ -15,6 +15,7 @@
     theme: { extend: {
       colors: {
         navy:    { DEFAULT: '#1E3A5F', dark: '#16304D' },
+        brand:   '#007264',   // the green in the roombusinesscenter.se wordmark
         teal:    { DEFAULT: '#00A896', dark: '#008476' },
         ink:     '#1A1A2E',
         paper:   '#FAFBFC',
@@ -98,10 +99,14 @@
 
 <!-- header -->
 <header class="flex items-center justify-between px-5 py-4 gap-3 border-b border-slate-200">
-  <div class="flex items-center gap-2">
-    <span class="font-head text-lg font-extrabold tracking-tight text-navy">ROOM</span>
-    <span class="hidden sm:inline font-head font-semibold text-sm text-slate-400">Business Center</span>
-  </div>
+  <!-- Wordmark matched to roombusinesscenter.se: Montserrat 700, ROOM in the
+       brand green #007264, "Business Center" in navy, -0.02em tracking.
+       Clicking it returns to step 1, like the logo on the main site. -->
+  <button onclick="restart()" id="logo" title="ROOM Business Center"
+    class="flex items-baseline gap-1.5 bg-transparent p-0 rounded-md hover:opacity-80 focus-visible:ring-2 focus-visible:ring-brand transition-opacity cursor-pointer">
+    <span class="font-head text-xl font-bold text-brand" style="letter-spacing:-0.02em">ROOM</span>
+    <span class="font-head text-xl font-bold text-navy" style="letter-spacing:-0.02em">Business Center</span>
+  </button>
   <div class="flex items-center gap-3 text-sm">
     <!-- OS toggle -->
     <div class="flex rounded-lg bg-white border border-slate-200 p-0.5">
@@ -132,16 +137,6 @@
 <main class="flex-1 flex flex-col items-center justify-center px-4 py-10">
   <div class="w-full max-w-2xl mx-auto">
 
-    <!-- progress -->
-    <div class="mb-8">
-      <div class="flex items-center text-sm text-slate-500 mb-2">
-        <span id="step-label"></span>
-      </div>
-      <div id="progress-track" class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden" role="progressbar" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1">
-        <div id="progress-bar" class="h-full bg-teal rounded-full transition-all duration-500" style="width:20%"></div>
-      </div>
-    </div>
-
     <!-- STEPS -->
     <div id="steps" class="mb-10">
 
@@ -156,6 +151,24 @@
             </span>
           </div>
           <h1 class="font-head text-3xl font-extrabold text-navy" data-i18n="s1_title">Add the office printer</h1>
+
+          <!-- Only shown when we could NOT detect the OS. When we could, the
+               toggle in the header already reflects it and this stays hidden. -->
+          <div id="os-picker" hidden class="mt-8">
+            <p class="text-slate-600 mb-4" data-i18n="s1_pick_os">Which computer are you on?</p>
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+              <button onclick="pickOS('mac')"
+                class="flex-1 max-w-[220px] mx-auto sm:mx-0 px-6 py-4 rounded-xl bg-white border-2 border-slate-200 hover:border-brand hover:bg-brand/5 transition-colors font-semibold text-navy">
+                <svg viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7 mx-auto mb-2 text-slate-500" aria-hidden="true"><path d="M16.4 12.8c0-2 1.6-3 1.7-3-.9-1.4-2.4-1.5-2.9-1.6-1.2-.1-2.4.7-3 .7s-1.6-.7-2.6-.7c-1.3 0-2.6.8-3.3 2-1.4 2.4-.4 6 1 8 .7 1 1.5 2.1 2.5 2 1 0 1.4-.6 2.6-.6s1.5.6 2.6.6c1.1 0 1.8-1 2.4-2 .8-1.1 1.1-2.2 1.1-2.3 0 0-2.1-.8-2.1-3.1zM14.5 6.6c.5-.7.9-1.6.8-2.6-.8 0-1.8.6-2.4 1.3-.5.6-1 1.6-.8 2.5.9.1 1.8-.5 2.4-1.2z"/></svg>
+                macOS
+              </button>
+              <button onclick="pickOS('win')"
+                class="flex-1 max-w-[220px] mx-auto sm:mx-0 px-6 py-4 rounded-xl bg-white border-2 border-slate-200 hover:border-brand hover:bg-brand/5 transition-colors font-semibold text-navy">
+                <svg viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7 mx-auto mb-2 text-slate-500" aria-hidden="true"><path d="M3 5.6l7.3-1v7.1H3V5.6zm0 12.8l7.3 1v-7H3v6zm8.4 1.2L21 21V12.7h-9.6v6.9zM11.4 3v7.7H21V2l-9.6 1z"/></svg>
+                Windows
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -322,11 +335,25 @@
       </div>
     </nav>
 
+    <!-- progress: deliberately quiet and below the buttons. Guidance on
+         multi-step forms is that the indicator belongs in the user's natural
+         gaze path (next to Next) rather than shouting from the top, and that
+         dots read as position while a small counter carries the scale. Clicking
+         a dot jumps to that step. -->
+    <div class="mt-10 flex flex-col items-center gap-2">
+      <div id="dots" class="flex items-center gap-2" role="progressbar" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1"></div>
+      <span id="step-label" class="text-xs text-slate-400"></span>
+    </div>
+
   </div>
 </main>
 
-<footer class="text-center text-xs text-slate-400 pb-6">
-  <span data-i18n="footer">ROOM Business Center · Olivetti MF224</span>
+<footer class="text-center text-xs text-slate-400 pb-6 space-y-1">
+  <p data-i18n="footer">ROOM Business Center · Olivetti MF224</p>
+  <p>
+    <span data-i18n="support">Need help?</span>
+    <a href="mailto:william@bernting.se" class="text-navy hover:text-brand underline underline-offset-2 transition-colors">william@bernting.se</a>
+  </p>
 </footer>
 
 <!-- the only thing this page ever sends to a printer -->
@@ -417,6 +444,8 @@ const I18N = {
     mac_faq3_a:"Click the Terminal window first, then paste.",
     win_faq3_a:"Click inside the PowerShell window first, then paste. If it says scripts are disabled, close PowerShell, open it again and paste the command exactly as copied.",
     footer:"ROOM Business Center · Olivetti MF224",
+    support:"Stuck? Email",
+    s1_pick_os:"Which computer are you on?",
   },
   sv: {
     stepfmt:"Steg {n} av {t}", back:"Tillbaka", next:"Nästa", lets_go:"Sätt igång", start_over:"Börja om",
@@ -470,11 +499,30 @@ const I18N = {
     mac_faq3_a:"Klicka i Terminal-fönstret först, klistra sedan in.",
     win_faq3_a:"Klicka i PowerShell-fönstret först, klistra sedan in. Står det att skript är inaktiverade: stäng PowerShell, öppna det igen och klistra in kommandot exakt som det kopierades.",
     footer:"ROOM Business Center · Olivetti MF224",
+    support:"Fastnat? Mejla",
+    s1_pick_os:"Vilken dator sitter du vid?",
   }
 };
 
-let lang = "sv";   // Swedish is always the default
-let os = /Win/i.test(navigator.userAgent) ? "win" : "mac";
+// ---- detection --------------------------------------------------------------
+// Language follows the browser: Swedish for any sv-* locale, English otherwise.
+// The flags at the top stay the manual override.
+let lang = (navigator.languages || [navigator.language || 'en'])
+  .some(l => /^sv\b/i.test(l)) ? 'sv' : 'en';
+
+// OS detection is deliberately allowed to FAIL. userAgentData.platform is the
+// modern signal; the UA string is the fallback. If neither says Mac or Windows
+// (Linux, ChromeOS, a phone, a locked-down UA), we don't guess — step 1 asks
+// instead, because guessing wrong hands someone the wrong install command.
+function detectOS(){
+  const p = (navigator.userAgentData && navigator.userAgentData.platform) || '';
+  const ua = navigator.userAgent || '';
+  if (/windows/i.test(p) || /Windows|Win32|Win64/i.test(ua)) return 'win';
+  if (/macos|mac/i.test(p) || /Macintosh|Mac OS X/i.test(ua)) return 'mac';
+  return null;                       // unknown - ask the user
+}
+const detectedOS = detectOS();
+let os = detectedOS || 'mac';        // 'mac' is only a placeholder until they pick
 
 function t(key){ const L = I18N[lang]; return (L[os+'_'+key] !== undefined ? L[os+'_'+key] : L[key]) || ""; }
 
@@ -581,6 +629,25 @@ function confetti(origin){
 
 // ---- wizard navigation ------------------------------------------------------
 const steps = () => [...document.querySelectorAll('[data-step]')];
+// Dots: filled = done, wide pill = current, hollow = ahead. Clickable so the
+// stepper doubles as navigation rather than being decoration only.
+function renderDots(){
+  const wrap = document.getElementById('dots');
+  wrap.setAttribute('aria-valuenow', current+1);
+  wrap.innerHTML = '';
+  for (let i = 0; i < TOTAL; i++){
+    const b = document.createElement('button');
+    const done = i < current, now = i === current;
+    b.className = 'rounded-full transition-all duration-300 ' +
+      (now  ? 'w-6 h-2 bg-brand'
+            : done ? 'w-2 h-2 bg-brand/40 hover:bg-brand/70'
+                   : 'w-2 h-2 bg-slate-200 hover:bg-slate-300');
+    b.setAttribute('aria-label', I18N[lang].stepfmt.replace('{n}', i+1).replace('{t}', TOTAL));
+    if (now) b.setAttribute('aria-current','step');
+    b.onclick = () => { if (i === current) return; navDir = i > current ? 1 : -1; animateStep = true; current = i; render(); };
+    wrap.appendChild(b);
+  }
+}
 function render(){
   steps().forEach((s,i)=> s.classList.toggle('active', i===current));
   // directional entrance, only on real navigation (not lang/os re-renders)
@@ -591,9 +658,7 @@ function render(){
     act.classList.add(navDir >= 0 ? 'from-next' : 'from-prev');
   }
   animateStep = false;
-  const pct = Math.round(((current+1)/TOTAL)*100);
-  document.getElementById('progress-bar').style.width = pct + "%";
-  document.getElementById('progress-track').setAttribute('aria-valuenow', current+1);
+  renderDots();
   document.getElementById('step-label').textContent =
     I18N[lang].stepfmt.replace('{n}', current+1).replace('{t}', TOTAL);
   document.getElementById('btn-back').style.visibility = current===0 ? 'hidden' : 'visible';
@@ -677,8 +742,19 @@ document.addEventListener('keydown', (e)=>{
   else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
 });
 
+// Picking from step 1 is the same as using the header toggle, plus it moves on.
+function pickOS(o){ setOS(o); go(1); }
+
 setOS(os);
 setLang(lang);
+// If we couldn't tell, ask on step 1 and don't pre-highlight either toggle.
+if (!detectedOS){
+  document.getElementById('os-picker').hidden = false;
+  document.getElementById('os-mac').className = "px-3 py-1 rounded-md font-medium transition-colors text-slate-500 hover:text-navy";
+  document.getElementById('os-win').className = "px-3 py-1 rounded-md font-medium transition-colors text-slate-500 hover:text-navy";
+  document.getElementById('os-mac').setAttribute('aria-pressed', false);
+  document.getElementById('os-win').setAttribute('aria-pressed', false);
+}
 </script>
 </body>
 </html>
