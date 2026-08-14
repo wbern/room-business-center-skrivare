@@ -201,7 +201,8 @@ en = @{
     partB_title     = "PART B - put your login in"
     partB_only      = "Only one thing left - your login. Everything else is already set."
     partB_open      = "  A window titled 'Printing preferences' will open."
-    partB_note      = "    NOTE: Windows will NOT ask for your login when you print. It has to\n           be stored here, once, or every job is thrown away by the printer."
+    partB_note      = "    NOTE: Windows will NOT ask for your login when you print."
+    partB_note2     = "    It has to be stored here, once, or the printer throws every job away."
     partB_1         = "  * Go to the  Basic  tab."
     partB_2         = "  * Click  Authentication/Account Track..."
     partB_3         = "  * Under  User Authentication , select  Recipient User , then enter:"
@@ -336,7 +337,8 @@ sv = @{
     partB_title     = "DEL B - fyll i din inloggning"
     partB_only      = "Bara en sak kvar - din inloggning. Allt annat är redan klart."
     partB_open      = "  Ett fönster som heter 'Utskriftsinställningar' öppnas."
-    partB_note      = "    OBS: Windows frågar INTE efter din inloggning när du skriver ut. Den\n           måste sparas här, en gång, annars slänger skrivaren varje utskrift."
+    partB_note      = "    OBS: Windows frågar INTE efter din inloggning när du skriver ut."
+    partB_note2     = "    Den måste sparas här, en gång, annars slänger skrivaren varje utskrift."
     partB_1         = "  * Gå till fliken  Basic ."
     partB_2         = "  * Klicka  Authentication/Account Track..."
     partB_3         = "  * Under  User Authentication , välj  Recipient User  och fyll i:"
@@ -1042,7 +1044,8 @@ if ($configRestored) {
 }
 Write-Host ""
 Write-Host (T 'partB_open')
-Write-Host (T 'partB_note') -ForegroundColor Yellow
+Write-Host (T 'partB_note')  -ForegroundColor Yellow
+Write-Host (T 'partB_note2') -ForegroundColor Yellow
 Write-Host (T 'partB_1')
 Write-Host (T 'partB_2')
 Write-Host (T 'partB_3')
