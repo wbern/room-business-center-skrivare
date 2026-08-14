@@ -190,9 +190,14 @@ en = @{
     partA_note      = "  (skipping this makes Part B do nothing at all)"
     partA_open      = "  A window titled 'Printer properties' will open."
     partA_1         = "  * Go to the  Configure  tab."
-    partA_2         = "  * Click  Obtain Settings...  and UNTICK  Auto , then OK."
+    partA_2         = "  * If  Model  says  Baseline  or  Generic , click  Select Model"
+    partA_2b        = "    and pick the real model first - otherwise the list below is"
+    partA_2c        = "    greyed out and nothing can be changed."
+    partA_3a        = "  * Click  Obtain Settings...  and UNTICK  Auto , then OK."
     partA_3         = "  * In the  Device Option  list, select  User Authentication"
-    partA_4         = "    and set  Setting  to  On . Click  Apply , then  OK ."
+    partA_4         = "    and set  Setting  to  ON (MFP) .  <- not External Server:"
+    partA_4b        = "    this printer checks the initials/PIN against its own user list."
+    partA_5         = "  * Click  Apply , then  OK ."
     partB_title     = "PART B - put your login in"
     partB_only      = "Only one thing left - your login. Everything else is already set."
     partB_open      = "  A window titled 'Printing preferences' will open."
@@ -319,9 +324,14 @@ sv = @{
     partA_note      = "  (hoppar du över det här gör Del B ingen nytta alls)"
     partA_open      = "  Ett fönster som heter 'Egenskaper för skrivare' öppnas."
     partA_1         = "  * Gå till fliken  Configure ."
-    partA_2         = "  * Klicka  Obtain Settings...  och BOCKA UR  Auto , sedan OK."
+    partA_2         = "  * Står det  Baseline  eller  Generic  vid  Model : klicka  Select Model"
+    partA_2b        = "    och välj den riktiga modellen först - annars är listan nedan"
+    partA_2c        = "    gråmarkerad och går inte att ändra."
+    partA_3a        = "  * Klicka  Obtain Settings...  och BOCKA UR  Auto , sedan OK."
     partA_3         = "  * I listan  Device Option , välj  User Authentication"
-    partA_4         = "    och sätt  Setting  till  On . Klicka  Apply , sedan  OK ."
+    partA_4         = "    och sätt  Setting  till  ON (MFP) .  <- inte External Server:"
+    partA_4b        = "    skrivaren kontrollerar initialer/PIN mot sin egen användarlista."
+    partA_5         = "  * Klicka  Apply , sedan  OK ."
     partB_title     = "DEL B - fyll i din inloggning"
     partB_only      = "Bara en sak kvar - din inloggning. Allt annat är redan klart."
     partB_open      = "  Ett fönster som heter 'Utskriftsinställningar' öppnas."
@@ -1005,8 +1015,13 @@ if (-not $configRestored) {
     Write-Host (T 'partA_open')
     Write-Host (T 'partA_1')
     Write-Host (T 'partA_2')
+    Write-Host (T 'partA_2b')
+    Write-Host (T 'partA_2c')
+    Write-Host (T 'partA_3a')
     Write-Host (T 'partA_3')
-    Write-Host (T 'partA_4')
+    Write-Host (T 'partA_4') -ForegroundColor Cyan
+    Write-Host (T 'partA_4b')
+    Write-Host (T 'partA_5')
     Write-Host ""
     Read-Host (T 'press_open_A')
     try {
