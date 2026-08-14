@@ -132,13 +132,10 @@ en = @{
     driver_ok       = "driver installed: {0}"
     queue_ok        = "the printer is already set up correctly - keeping it (your saved login stays)"
     removed_old     = "removed an old copy of the printer"
-    dupes_found     = "found {0} other printer(s) already pointing at {1}:"
-    dupes_explain_1 = "  These are leftovers that can't log in, so their jobs silently vanish."
-    dupes_explain_2 = "  Removing them means only the working printer shows up when you print."
-    dupes_ask       = "  Remove them? (y/n)"
+    dupes_found     = "found {0} leftover printer(s) pointing at the same printer ({1}) - removing them:"
+    dupes_explain_1 = "  They have no login, so anything sent to them is thrown away by the printer."
     dupes_removed   = "removed {0}"
     dupes_fail      = "couldn't remove {0} - {1}"
-    dupes_kept      = "left them in place - remember to pick '{0}' when you print."
     port_making     = "creating the printer port..."
     port_reuse      = "reusing the existing printer port ({0})"
     port_ok         = "port created ({0})"
@@ -242,13 +239,10 @@ sv = @{
     driver_ok       = "drivrutin installerad: {0}"
     queue_ok        = "skrivaren är redan korrekt uppsatt - behåller den (din sparade inloggning ligger kvar)"
     removed_old     = "tog bort en gammal kopia av skrivaren"
-    dupes_found     = "hittade {0} andra skrivare som redan pekar mot {1}:"
-    dupes_explain_1 = "  Det här är rester som inte kan logga in, så deras utskrifter försvinner tyst."
-    dupes_explain_2 = "  Tar du bort dem visas bara den fungerande skrivaren när du skriver ut."
-    dupes_ask       = "  Ta bort dem? (j/n)"
+    dupes_found     = "hittade {0} kvarglömda skrivare som pekar mot samma skrivare ({1}) - tar bort dem:"
+    dupes_explain_1 = "  De saknar inloggning, så allt som skickas till dem slängs av skrivaren."
     dupes_removed   = "tog bort {0}"
     dupes_fail      = "kunde inte ta bort {0} - {1}"
-    dupes_kept      = "lät dem vara - kom ihåg att välja '{0}' när du skriver ut."
     port_making     = "skapar skrivarporten..."
     port_reuse      = "återanvänder den befintliga skrivarporten ({0})"
     port_ok         = "port skapad ({0})"
@@ -573,20 +567,17 @@ $ourPorts = @(Get-PrinterPort -ErrorAction SilentlyContinue |
     Select-Object -ExpandProperty Name)
 $dupes = @(Get-Printer -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -ne $PrinterName -and $ourPorts -contains $_.PortName })
+# Removed without asking: these point at the SAME device on the same IP, and
+# without a login the printer discards everything they send. There is nothing in
+# them worth keeping, and a y/n prompt here just stalls an otherwise unattended
+# run. What was removed is still printed, so it's never a silent change.
 if ($dupes.Count -gt 0) {
     Write-Host ""
-    Warn (T 'dupes_found' @($dupes.Count, $PrinterIP))
-    $dupes | ForEach-Object { Write-Host "    $($_.Name)" -ForegroundColor Yellow }
+    Info (T 'dupes_found' @($dupes.Count, $PrinterIP))
     Write-Host (T 'dupes_explain_1')
-    Write-Host (T 'dupes_explain_2')
-    $answer = (Read-Host (T 'dupes_ask')).Trim().ToLower()
-    if ($answer -eq "y" -or $answer -eq "j") {          # accept Swedish "ja" too
-        foreach ($d in $dupes) {
-            try { Remove-Printer -Name $d.Name -Confirm:$false; Ok (T 'dupes_removed' @($d.Name)) }
-            catch { Warn (T 'dupes_fail' @($d.Name, $_.Exception.Message)) }
-        }
-    } else {
-        Warn (T 'dupes_kept' @($PrinterName))
+    foreach ($d in $dupes) {
+        try { Remove-Printer -Name $d.Name -Confirm:$false; Ok (T 'dupes_removed' @($d.Name)) }
+        catch { Warn (T 'dupes_fail' @($d.Name, $_.Exception.Message)) }
     }
 }
 
