@@ -122,6 +122,8 @@ en = @{
     spooler_done    = "spooler restarted"
     driver_present  = "printer driver already installed ({0}) - skipping the 52 MB download"
     driver_dl       = "downloading the printer driver (one-time, ~52 MB)..."
+    disk_full       = "not enough free space on {2} - only {0} MB left, and installing the driver needs about {1} MB free while it works. Delete some files (Downloads, Recycle Bin, old videos) or run Disk Cleanup, then run this again. Nothing has been changed."
+    disk_full_late  = "Windows ran out of disk space while installing the driver ({0} MB free on {1}). Free up about 1 GB - empty the Recycle Bin, clear Downloads, or run Disk Cleanup - then run this again. Nothing else is wrong with the setup."
     driver_dl_fail  = "couldn't download the driver from {0}. Check your connection and try again."
     driver_corrupt  = "driver download looks corrupt ({0} missing). Try again."
     driver_dl_ok    = "driver downloaded"
@@ -236,6 +238,8 @@ sv = @{
     spooler_done    = "utskriftshanteraren omstartad"
     driver_present  = "skrivardrivrutinen finns redan ({0}) - hoppar över nedladdningen på 52 MB"
     driver_dl       = "laddar ner skrivardrivrutinen (engångsjobb, ca 52 MB)..."
+    disk_full       = "för lite ledigt utrymme på {2} - bara {0} MB kvar, och drivrutinen behöver ungefär {1} MB ledigt under installationen. Ta bort några filer (Hämtade filer, Papperskorgen, gamla videor) eller kör Diskrensning och kör sedan det här igen. Inget har ändrats."
+    disk_full_late  = "Windows fick slut på diskutrymme när drivrutinen installerades ({0} MB ledigt på {1}). Frigör ungefär 1 GB - töm Papperskorgen, rensa Hämtade filer eller kör Diskrensning - och kör sedan det här igen. Inget annat är fel med installationen."
     driver_dl_fail  = "kunde inte ladda ner drivrutinen från {0}. Kontrollera uppkopplingen och försök igen."
     driver_corrupt  = "nedladdningen ser trasig ut ({0} saknas). Försök igen."
     driver_dl_ok    = "drivrutinen nedladdad"
@@ -523,6 +527,25 @@ $resolvedDriver = Resolve-KmDriver
 if ($resolvedDriver) {
     Ok (T 'driver_present' @($resolvedDriver))
 } else {
+    # Disk space, checked BEFORE the 52 MB download. Installing this driver
+    # briefly needs several times its download size: the zip, our extraction,
+    # pnputil's own temp copy of the package, and finally the expanded copy in
+    # the driver store. On a full disk the failure surfaces late and cryptically
+    # (pnputil exit 112 / ERROR_DISK_FULL, with the real reason buried in
+    # setupapi.dev.log), so fail early and say the actual number.
+    $needMB = 1024
+    try {
+        $sysDrive = ($env:SystemDrive).TrimEnd(':')
+        $free = (Get-PSDrive -Name $sysDrive -ErrorAction Stop).Free
+        $freeMB = [math]::Round($free / 1MB)
+        if ($freeMB -lt $needMB) {
+            Write-Host ""
+            Die (T 'disk_full' @($freeMB, $needMB, $env:SystemDrive))
+        }
+    } catch [System.Management.Automation.RuntimeException] {
+        # couldn't read the drive - not a reason to stop, just continue
+    }
+
     Info (T 'driver_dl')
     # A short, local, machine-scoped path. The old %TEMP%\kmdriver_<32-hex-guid>
     # sat deep under a user profile; long paths and per-user temp are both
@@ -537,6 +560,9 @@ if ($resolvedDriver) {
         Die (T 'driver_dl_fail' @($DriverUrl))
     }
     Expand-Archive -Path $zip -DestinationPath $work -Force
+    # Reclaim the 52 MB archive immediately - on a tight disk this is exactly
+    # the margin the driver-store copy needs.
+    Remove-Item $zip -Force -ErrorAction SilentlyContinue
     $inf = Join-Path $work $DriverInf
     if (-not (Test-Path $inf)) { Die (T 'driver_corrupt' @($DriverInf)) }
     Ok (T 'driver_dl_ok')
@@ -553,6 +579,16 @@ if ($resolvedDriver) {
     }
     # pnputil returns 0 (added), 259 (no new driver / already present) or 3010
     # (added, reboot required) on success-ish paths.
+    # 112 is ERROR_DISK_FULL and 29 ERROR_WRITE_FAULT - both mean the copy into
+    # the driver store failed for space/write reasons, not anything about the
+    # driver. Stop here with a straight answer instead of trying three more
+    # install routes that must all fail the same way.
+    if ($LASTEXITCODE -in 112, 29) {
+        $freeNow = 0
+        try { $freeNow = [math]::Round((Get-PSDrive -Name ($env:SystemDrive).TrimEnd(':')).Free / 1MB) } catch { }
+        Write-Host ""
+        Die (T 'disk_full_late' @($freeNow, $env:SystemDrive))
+    }
     if ($LASTEXITCODE -notin 0, 259, 3010) { Warn (T 'pnputil_warn' @($LASTEXITCODE)) }
 
     # Staging the INF into the driver store is NOT enough. The print spooler
