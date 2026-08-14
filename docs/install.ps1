@@ -130,6 +130,9 @@ en = @{
     driver_registered = "driver registered as: {0}"
     driver_tried    = "  Names tried:"
     pnputil_said    = "  What pnputil reported:"
+    setupapi_said   = "  What Windows logged about this driver:"
+    driver_not_staged = "Windows refused to stage the driver into its driver store - trying other routes."
+    driver_fallback = "trying the alternative driver install route..."
     pnputil_warn    = "pnputil returned {0} while adding the driver; continuing."
     driver_none     = "the driver installed but Windows didn't register a Universal PS driver. See the list above."
     drivers_known   = "  Drivers Windows currently knows about:"
@@ -241,6 +244,9 @@ sv = @{
     driver_registered = "drivrutinen registrerad som: {0}"
     driver_tried    = "  Namn som testades:"
     pnputil_said    = "  Vad pnputil rapporterade:"
+    setupapi_said   = "  Vad Windows loggade om drivrutinen:"
+    driver_not_staged = "Windows vägrade lägga drivrutinen i sitt drivrutinsarkiv - provar andra vägar."
+    driver_fallback = "provar den alternativa installationsvägen för drivrutinen..."
     pnputil_warn    = "pnputil svarade {0} när drivrutinen lades till; fortsätter."
     driver_none     = "drivrutinen installerades men Windows registrerade ingen Universal PS-drivrutin. Se listan ovan."
     drivers_known   = "  Drivrutiner som Windows känner till just nu:"
@@ -518,7 +524,11 @@ if ($resolvedDriver) {
     Ok (T 'driver_present' @($resolvedDriver))
 } else {
     Info (T 'driver_dl')
-    $work = Join-Path $env:TEMP ("kmdriver_" + [System.Guid]::NewGuid().ToString("N"))
+    # A short, local, machine-scoped path. The old %TEMP%\kmdriver_<32-hex-guid>
+    # sat deep under a user profile; long paths and per-user temp are both
+    # implicated in staging write faults, and this costs nothing to avoid.
+    $work = Join-Path $env:SystemRoot "Temp\kmdrv"
+    if (Test-Path $work) { Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue }
     New-Item -ItemType Directory -Path $work -Force | Out-Null
     $zip = Join-Path $work "driver.zip"
     try {
@@ -535,9 +545,11 @@ if ($resolvedDriver) {
     Info (T 'driver_install')
     # Same stderr/EAP hazard as cmdkey above - pnputil writes to stderr on
     # several non-fatal paths, and with EAP=Stop that would terminate the run.
+    # /subdirs is recommended for printer packages whose INF references files
+    # that aren't flat next to it; harmless when they are.
     & {
         $ErrorActionPreference = "Continue"
-        $script:pnp = & pnputil.exe /add-driver "$inf" /install 2>&1
+        $script:pnp = & pnputil.exe /add-driver "$inf" /subdirs /install 2>&1
     }
     # pnputil returns 0 (added), 259 (no new driver / already present) or 3010
     # (added, reboot required) on success-ish paths.
@@ -575,6 +587,12 @@ if ($resolvedDriver) {
         } catch { }
         $infPaths += $inf
 
+        # Exit code 29 from pnputil is ERROR_WRITE_FAULT: staging into the driver
+        # store failed outright. Say so plainly rather than letting the user
+        # think the driver is present, because Add-PrinterDriver resolves names
+        # against the store and will usually fail too.
+        if (-not $staged) { Warn (T 'driver_not_staged') }
+
         :register foreach ($path in $infPaths) {
             foreach ($cand in $candidates) {
                 try {
@@ -582,6 +600,23 @@ if ($resolvedDriver) {
                     Ok (T 'driver_registered' @($cand))
                     break register
                 } catch { }
+            }
+        }
+
+        # Last resort: printui's own INF installer. It predates the PrintManagement
+        # module and takes a different route into the spooler, so it sometimes
+        # succeeds where Add-PrinterDriver won't. It reports failure only through
+        # dialogs, hence /q plus a bounded wait, and we judge it by whether the
+        # driver actually appears afterwards.
+        if (-not (Resolve-KmDriver)) {
+            Info (T 'driver_fallback')
+            foreach ($cand in $candidates) {
+                try {
+                    $p = Start-Process rundll32.exe -PassThru -ArgumentList `
+                        "printui.dll,PrintUIEntry", "/ia", "/q", "/m", "`"$cand`"", "/f", "`"$inf`""
+                    if (-not $p.WaitForExit(90000)) { try { $p.Kill() } catch {} }
+                } catch { }
+                if (Resolve-KmDriver) { Ok (T 'driver_registered' @($cand)); break }
             }
         }
     }
@@ -599,6 +634,20 @@ if ($resolvedDriver) {
             Write-Host (T 'pnputil_said') -ForegroundColor Yellow
             $pnp | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
         }
+        # setupapi.dev.log is the authoritative record of why staging failed.
+        # Pull the lines about THIS package so the next attempt starts from fact
+        # instead of guesswork.
+        try {
+            $log = Join-Path $env:SystemRoot "inf\setupapi.dev.log"
+            if (Test-Path $log) {
+                $hits = @(Select-String -Path $log -Pattern "koawnaa" -SimpleMatch -ErrorAction SilentlyContinue |
+                          Select-Object -Last 12)
+                if ($hits) {
+                    Write-Host (T 'setupapi_said') -ForegroundColor Yellow
+                    $hits | ForEach-Object { Write-Host "    $($_.Line.Trim())" -ForegroundColor DarkGray }
+                }
+            }
+        } catch { }
         Die (T 'driver_none')
     }
     Ok (T 'driver_ok' @($resolvedDriver))
