@@ -55,6 +55,14 @@
     0%   { opacity:1; transform: translate(-50%,-50%) rotate(0) scale(1); }
     100% { opacity:0; transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y) + 44px)) rotate(var(--r)) scale(.6); }
   }
+  /* test print: the page itself is never worth printing — whatever triggers a
+     print (our button or Ctrl+P), only the test sheet goes to the printer. */
+  #test-sheet { display: none; }
+  @media print {
+    body > *:not(#test-sheet) { display: none !important; }
+    #test-sheet { display: block !important; font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; color: #000; }
+    @page { margin: 20mm; }
+  }
   #done-check svg path { stroke-dasharray: 30; stroke-dashoffset: 30; }
   .step.active #done-check svg path { animation: draw-check .55s .12s cubic-bezier(.65,0,.35,1) forwards; }
   @keyframes draw-check { to { stroke-dashoffset: 0; } }
@@ -257,8 +265,21 @@
             </span>
           </div>
           <h1 class="font-head text-3xl font-extrabold text-navy mb-3" data-i18n="s5_title">You're all set</h1>
-          <p class="text-lg text-slate-600" data-i18n="s5_lead">A test page prints automatically to confirm it works.</p>
+          <p class="text-lg text-slate-600" data-i18n="s5_lead">Now prove it with a page of your own.</p>
         </div>
+        <div class="p-6 rounded-xl bg-white border-2 border-teal/40 mb-6 text-center">
+          <h2 class="font-head text-sm font-bold text-navy mb-2 uppercase tracking-wide" data-i18n="s5_test_t">Try it now</h2>
+          <p class="text-slate-600 text-sm mb-4" data-i18n="s5_test_d"></p>
+          <button id="btn-testprint" onclick="testPrint()"
+            class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-white bg-teal hover:bg-teal-dark transition-colors font-semibold">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M7 3h10v4H7z"/><path d="M5 8h14a2 2 0 0 1 2 2v5h-4v-2H7v2H3v-5a2 2 0 0 1 2-2z"/><path d="M7 15h10v6H7z"/>
+            </svg>
+            <span data-i18n="s5_test_btn">Print a test page</span>
+          </button>
+          <p class="text-xs text-slate-400 mt-3" data-i18n="s5_test_pick"></p>
+        </div>
+
         <div class="p-6 rounded-xl bg-teal/5 border border-teal/20 mb-6">
           <h2 class="font-head text-sm font-bold text-navy mb-2 uppercase tracking-wide" data-i18n="s5_card_t">From now on</h2>
           <p class="text-slate-600 text-sm" data-i18n="s5_card_d"></p>
@@ -308,6 +329,18 @@
   <span data-i18n="footer">ROOM Business Center · Olivetti MF224</span>
 </footer>
 
+<!-- the only thing this page ever sends to a printer -->
+<div id="test-sheet" aria-hidden="true">
+  <h1 style="font-size:28pt;margin:0 0 6mm">✓</h1>
+  <h2 id="sheet-title" style="font-size:20pt;margin:0 0 8mm">The printer works.</h2>
+  <p id="sheet-body" style="font-size:12pt;line-height:1.6;margin:0 0 10mm"></p>
+  <hr style="border:none;border-top:1pt solid #999;margin:0 0 4mm">
+  <p style="font-size:9pt;color:#555;margin:0">
+    Room_Business_Center_Olivetti_MF224 &middot; 192.168.9.15 &middot;
+    <span id="sheet-stamp"></span>
+  </p>
+</div>
+
 <!-- affirmation toast -->
 <div id="toast" hidden>
   <div class="flex items-center gap-2 rounded-full bg-navy text-white text-sm font-semibold px-4 py-2 shadow-lg">
@@ -319,7 +352,10 @@
 <script>
 // ---- config -----------------------------------------------------------------
 const MAC_INSTALL_URL = "https://pages.bernting.se/room-business-center-skrivare/install.sh";
-const WIN_INSTALL_URL = "https://pages.bernting.se/room-business-center-skrivare/install.ps1";
+// boot.ps1, not install.ps1: Windows PowerShell 5.1 decodes a charset-less HTTP
+// response as ISO-8859-1, which would turn every å/ä/ö in the installer into
+// mojibake. boot.ps1 is pure ASCII and re-fetches the installer as UTF-8 bytes.
+const WIN_INSTALL_URL = "https://pages.bernting.se/room-business-center-skrivare/boot.ps1";
 const TOTAL = 5;
 let current = 0;
 let navDir = 1;          // direction of the last step change (1 fwd, -1 back)
@@ -350,16 +386,23 @@ const I18N = {
     mac_s3_type:"Type:", win_s3_type:"Type:",
     s3_enter:"then press <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-sm text-ink\">Enter</kbd>",
     mac_s3_black:"Leave the black window open.",
-    win_s3_black:"Leave the blue window open.",
+    win_s3_black:"Leave the PowerShell window open.",
 
     s4_title:"Copy, paste, press Enter",
     mac_s4_desc:"Paste into Terminal (<kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">⌘V</kbd>) and press <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Enter</kbd>.",
     win_s4_desc:"Paste into PowerShell (<kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Ctrl+V</kbd>) and press <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Enter</kbd>.",
     mac_s4_pw:"<strong class=\"text-navy\">Enter your Mac password</strong> when asked. The dots won't show; that's normal.",
-    win_s4_pw:"<strong class=\"text-navy\">Click Yes</strong> on the Windows prompt, then enter your initials and PIN.",
+    win_s4_pw:"<strong class=\"text-navy\">Click Yes</strong> on the Windows prompt, then enter your initials and PIN. Near the end a printer settings window opens &mdash; <strong class=\"text-navy\">follow the steps PowerShell shows</strong> and type your login in there too. Printing fails without it. Keep an eye on the window &mdash; it asks a couple of yes/no questions along the way.",
 
     s5_title:"You're all set",
-    s5_lead:"A test page prints automatically.",
+    s5_lead:"The installer already sent one page. Now prove it with a page of your own.",
+    s5_test_t:"Try it now",
+    s5_test_d:"Send a real page to the printer, the same way you will every day. Better to find a problem here than on something you actually need.",
+    s5_test_btn:"Print a test page",
+    mac_s5_test_pick:"Check that <strong class=\"text-navy\">Room_Business_Center_Olivetti_MF224</strong> is the one selected, then click Print and go collect it.",
+    win_s5_test_pick:"Check that <strong class=\"text-navy\">Room_Business_Center_Olivetti_MF224</strong> is the one selected &mdash; it may not be. Then click Print and go collect it. If nothing comes out within a minute, open \u2018If something goes wrong\u2019 below: the login window was almost certainly missed.",
+    sheet_title:"The printer works.",
+    sheet_body:"If you're holding this page, your computer is talking to the office printer and your login was accepted. Nothing left to do.",
     s5_card_t:"From now on",
     mac_s5_card_d:"Print with <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">⌘P</kbd> and pick <strong class=\"text-navy\">Room_Business_Center_Olivetti_MF224</strong>. No login at the printer.",
     win_s5_card_d:"Print with <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Ctrl+P</kbd> and pick <strong class=\"text-navy\">Room_Business_Center_Olivetti_MF224</strong>. No login at the printer.",
@@ -369,10 +412,10 @@ const I18N = {
     faq1_a:"Connect to the office Wi-Fi and run it again.",
     faq2_q:"Nothing printed, or \"Login Error\"",
     mac_faq2_a:"Wrong username or PIN. Fix it in step 2 and run again.",
-    win_faq2_a:"Wrong initials or PIN. Run again and enter them carefully.",
+    win_faq2_a:"Almost always the printer settings window was skipped or half-filled &mdash; the printer throws away jobs that don't carry your login. Open Settings &gt; Bluetooth &amp; devices &gt; Printers &amp; scanners &gt; Room_Business_Center_Olivetti_MF224 &gt; Printer properties. On the <strong>Configure</strong> tab click Obtain Settings, untick Auto, and set Device Option &gt; User Authentication to On. Then under Printing preferences &gt; <strong>Basic</strong> &gt; Authentication/Account Track, choose Recipient User and enter your initials and PIN. Both halves are needed; the second does nothing without the first.",
     mac_faq3_q:"Nothing happens after I paste", win_faq3_q:"Nothing happens, or \"scripts disabled\"",
     mac_faq3_a:"Click the Terminal window first, then paste.",
-    win_faq3_a:"Click the PowerShell window first, then paste.",
+    win_faq3_a:"Click inside the PowerShell window first, then paste. If it says scripts are disabled, close PowerShell, open it again and paste the command exactly as copied.",
     footer:"ROOM Business Center · Olivetti MF224",
   },
   sv: {
@@ -396,29 +439,36 @@ const I18N = {
     mac_s3_type:"Skriv:", win_s3_type:"Skriv:",
     s3_enter:"tryck sedan <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-sm text-ink\">Retur</kbd>",
     mac_s3_black:"Lämna det svarta fönstret öppet.",
-    win_s3_black:"Lämna det blå fönstret öppet.",
+    win_s3_black:"Lämna PowerShell-fönstret öppet.",
 
     s4_title:"Kopiera, klistra in, tryck Retur",
     mac_s4_desc:"Klistra in i Terminal (<kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">⌘V</kbd>) och tryck <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Retur</kbd>.",
     win_s4_desc:"Klistra in i PowerShell (<kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Ctrl+V</kbd>) och tryck <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Retur</kbd>.",
     mac_s4_pw:"<strong class=\"text-navy\">Ange ditt Mac-lösenord</strong> när du blir ombedd. Prickarna syns inte, det är normalt.",
-    win_s4_pw:"<strong class=\"text-navy\">Klicka Ja</strong> på Windows-rutan, ange sedan dina initialer och PIN.",
+    win_s4_pw:"<strong class=\"text-navy\">Klicka Ja</strong> på Windows-rutan, ange sedan dina initialer och PIN. Mot slutet öppnas ett inställningsfönster för skrivaren &mdash; <strong class=\"text-navy\">följ stegen som visas i PowerShell</strong> och skriv in din inloggning även där. Utan det fungerar inte utskriften. Håll ett öga på fönstret &mdash; det ställer ett par ja/nej-frågor på vägen.",
 
     s5_title:"Allt är klart",
-    s5_lead:"En testsida skrivs ut automatiskt.",
+    s5_lead:"Installeraren skickade redan en sida. Bevisa det nu med en egen.",
+    s5_test_t:"Testa nu",
+    s5_test_d:"Skicka en riktig sida till skrivaren, precis som du kommer göra varje dag. Bättre att hitta ett problem här än på något du faktiskt behöver.",
+    s5_test_btn:"Skriv ut en testsida",
+    mac_s5_test_pick:"Kontrollera att <strong class=\"text-navy\">Room_Business_Center_Olivetti_MF224</strong> är vald, klicka sedan Skriv ut och gå och hämta sidan.",
+    win_s5_test_pick:"Kontrollera att <strong class=\"text-navy\">Room_Business_Center_Olivetti_MF224</strong> är vald &mdash; det är den inte alltid. Klicka sedan Skriv ut och gå och hämta sidan. Kommer inget ut inom en minut: öppna \u2018Om något går fel\u2019 nedan, inloggningsfönstret missades nästan säkert.",
+    sheet_title:"Skrivaren fungerar.",
+    sheet_body:"Håller du den här sidan i handen pratar din dator med kontorsskrivaren och din inloggning godkändes. Inget mer att göra.",
     s5_card_t:"Från och med nu",
     mac_s5_card_d:"Skriv ut med <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">⌘P</kbd> och välj <strong class=\"text-navy\">Room_Business_Center_Olivetti_MF224</strong>. Ingen inloggning vid skrivaren.",
     win_s5_card_d:"Skriv ut med <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Ctrl+P</kbd> och välj <strong class=\"text-navy\">Room_Business_Center_Olivetti_MF224</strong>. Ingen inloggning vid skrivaren.",
 
     faq_title:"Om något går fel",
-    faq1_q:"\"can't reach the printer\"",
+    faq1_q:"\"når inte skrivaren\" / \"can't reach the printer\"",
     faq1_a:"Anslut till kontorets Wi-Fi och kör igen.",
     faq2_q:"Inget skrevs ut, eller \"Login Error\"",
     mac_faq2_a:"Fel användarnamn eller PIN. Rätta i steg 2 och kör igen.",
-    win_faq2_a:"Fel initialer eller PIN. Kör igen och skriv noggrant.",
+    win_faq2_a:"Nästan alltid för att fönstret med skrivarinställningar hoppades över eller fylldes i till hälften &mdash; skrivaren slänger jobb som inte bär med sig din inloggning. Öppna Inställningar &gt; Bluetooth och enheter &gt; Skrivare och skannrar &gt; Room_Business_Center_Olivetti_MF224 &gt; Egenskaper för skrivare. På fliken <strong>Configure</strong>: klicka Obtain Settings, bocka ur Auto, och sätt Device Option &gt; User Authentication till On. Gå sedan till Utskriftsinställningar &gt; <strong>Basic</strong> &gt; Authentication/Account Track, välj Recipient User och skriv in dina initialer och din PIN. Båda delarna behövs; den andra gör ingenting utan den första.",
     mac_faq3_q:"Inget händer efter inklistring", win_faq3_q:"Inget händer, eller \"skript inaktiverat\"",
     mac_faq3_a:"Klicka i Terminal-fönstret först, klistra sedan in.",
-    win_faq3_a:"Klicka i PowerShell-fönstret först, klistra sedan in.",
+    win_faq3_a:"Klicka i PowerShell-fönstret först, klistra sedan in. Står det att skript är inaktiverade: stäng PowerShell, öppna det igen och klistra in kommandot exakt som det kopierades.",
     footer:"ROOM Business Center · Olivetti MF224",
   }
 };
@@ -432,7 +482,10 @@ function t(key){ const L = I18N[lang]; return (L[os+'_'+key] !== undefined ? L[o
 function shquote(s){ return "'" + String(s).replace(/'/g, "'\\''") + "'"; }
 function rebuild(){
   if (os === 'win') {
-    document.getElementById('cmd').textContent = `irm ${WIN_INSTALL_URL} | iex`;
+    // Carry the page's language choice into PowerShell. The installer also
+    // falls back to the Windows culture if this is ever missing.
+    document.getElementById('cmd').textContent =
+      `$env:PRINTER_LANG='${lang}'; irm ${WIN_INSTALL_URL} | iex`;
     return;
   }
   const user = (document.getElementById('f-user').value||"").trim();
@@ -487,6 +540,19 @@ function toast(msg){
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=>{ el.hidden = true; }, 1900);
 }
+// ---- test print --------------------------------------------------------------
+// Opens the normal system print dialog; the @media print rules mean only
+// #test-sheet reaches the paper. The user still has to pick the printer there,
+// which is the point — it exercises the exact path a real Ctrl+P job takes.
+function fillTestSheet(){
+  document.getElementById('sheet-title').textContent = t('sheet_title');
+  document.getElementById('sheet-body').textContent  = t('sheet_body');
+  document.getElementById('sheet-stamp').textContent = new Date().toLocaleString(lang === 'sv' ? 'sv-SE' : 'en-GB');
+}
+// Also on Ctrl+P: the print rules make the sheet the only printable content, so
+// it must be filled in and in the right language even when the button wasn't used.
+window.addEventListener('beforeprint', fillTestSheet);
+function testPrint(){ fillTestSheet(); window.print(); }
 function affirm(){
   const arr = I18N[lang].affirm || [];
   if (!arr.length) return;

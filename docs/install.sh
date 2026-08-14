@@ -177,6 +177,10 @@ EOF
     rm -f "$test_ps"
 fi
 
-printf '\n%s%s All set!%s A test page is printing now.\n' "$c_bold" "$c_green" "$c_off"
+if [[ "$RUN_TEST" == "1" ]]; then
+    printf '\n%s%s All set!%s A test page is printing now - go and collect it.\n' "$c_bold" "$c_green" "$c_off"
+else
+    printf '\n%s%s All set!%s\n' "$c_bold" "$c_green" "$c_off"
+fi
 printf 'Print from any app with %sCmd+P%s and choose %s%s%s.\n\n' \
        "$c_bold" "$c_off" "$c_bold" "$QUEUE_NAME" "$c_off"
