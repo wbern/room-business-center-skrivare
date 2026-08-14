@@ -419,7 +419,7 @@ const I18N = {
     win_s2_desc:"The installer asks for these in PowerShell. Nothing to type here.",
     s2_user:"Username", s2_pin:"PIN",
     s2_winlabel:"Before you start",
-    win_s2_wininfo:"A window will ask for your <strong class=\"text-navy\">initials</strong> and <strong class=\"text-navy\">4-digit PIN</strong>. Have them ready.",
+    win_s2_wininfo:"A window will ask for your <strong class=\"text-navy\">initials</strong> and <strong class=\"text-navy\">4-digit PIN</strong>. Check the digits carefully &mdash; a wrong PIN doesn't warn you, the printer just silently bins the job.",
     mac_s2_note:"<strong class=\"text-navy\">Don't know it?</strong> Ask whoever handles IT at the office; it might be William.",
     win_s2_note:"<strong class=\"text-navy\">Don't know it?</strong> Ask whoever handles IT at the office; it might be William.",
 
@@ -435,9 +435,9 @@ const I18N = {
     mac_s4_desc:"Paste into Terminal (<kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">⌘V</kbd>) and press <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Enter</kbd>.",
     win_s4_desc:"Paste into PowerShell (<kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Ctrl+V</kbd>) and press <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Enter</kbd>.",
     mac_s4_pw:"<strong class=\"text-navy\">Enter your Mac password</strong> when asked. The dots won't show; that's normal.",
-    win_s4_pw:"<strong class=\"text-navy\">Click Yes</strong> on the Windows prompt, then enter your initials and PIN. Near the end a printer settings window opens &mdash; <strong class=\"text-navy\">follow the steps PowerShell shows</strong> and type your login in there too. Printing fails without it. Keep an eye on the window &mdash; it asks a couple of yes/no questions along the way.",
+    win_s4_pw:"<strong class=\"text-navy\">Click Yes</strong> on the Windows prompt, then enter your initials and PIN. Near the end a printer settings window opens &mdash; <strong class=\"text-navy\">follow the steps PowerShell shows</strong> and type your login in there too. Printing fails without it. Keep an eye on the window &mdash; it stops and waits for you a few times, and if the disk is nearly full it asks first before freeing up space.",
 
-    s5_title:"You're all set",
+    mac_s5_title:"You're all set", win_s5_title:"Almost done \u2014 one page to prove it",
     s5_lead:"The installer already sent one page. Now prove it with a page of your own.",
     s5_test_t:"Try it now",
     s5_test_d:"Send a real page to the printer, the same way you will every day. Better to find a problem here than on something you actually need.",
@@ -476,7 +476,7 @@ const I18N = {
     win_s2_desc:"Installeraren frågar efter dem i PowerShell. Inget att skriva här.",
     s2_user:"Användarnamn", s2_pin:"PIN",
     s2_winlabel:"Innan du börjar",
-    win_s2_wininfo:"Ett fönster frågar efter dina <strong class=\"text-navy\">initialer</strong> och din <strong class=\"text-navy\">4-siffriga PIN</strong>. Ha dem redo.",
+    win_s2_wininfo:"Ett fönster frågar efter dina <strong class=\"text-navy\">initialer</strong> och din <strong class=\"text-navy\">4-siffriga PIN</strong>. Kontrollera siffrorna noga &mdash; fel PIN varnar inte, skrivaren slänger bara utskriften tyst.",
     mac_s2_note:"<strong class=\"text-navy\">Vet du inte?</strong> Fråga IT-ansvarig på kontoret, eventuellt är det William.",
     win_s2_note:"<strong class=\"text-navy\">Vet du inte?</strong> Fråga IT-ansvarig på kontoret, eventuellt är det William.",
 
@@ -492,9 +492,9 @@ const I18N = {
     mac_s4_desc:"Klistra in i Terminal (<kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">⌘V</kbd>) och tryck <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Retur</kbd>.",
     win_s4_desc:"Klistra in i PowerShell (<kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Ctrl+V</kbd>) och tryck <kbd class=\"px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-xs text-ink\">Retur</kbd>.",
     mac_s4_pw:"<strong class=\"text-navy\">Ange ditt Mac-lösenord</strong> när du blir ombedd. Prickarna syns inte, det är normalt.",
-    win_s4_pw:"<strong class=\"text-navy\">Klicka Ja</strong> på Windows-rutan, ange sedan dina initialer och PIN. Mot slutet öppnas ett inställningsfönster för skrivaren &mdash; <strong class=\"text-navy\">följ stegen som visas i PowerShell</strong> och skriv in din inloggning även där. Utan det fungerar inte utskriften. Håll ett öga på fönstret &mdash; det ställer ett par ja/nej-frågor på vägen.",
+    win_s4_pw:"<strong class=\"text-navy\">Klicka Ja</strong> på Windows-rutan, ange sedan dina initialer och PIN. Mot slutet öppnas ett inställningsfönster för skrivaren &mdash; <strong class=\"text-navy\">följ stegen som visas i PowerShell</strong> och skriv in din inloggning även där. Utan det fungerar inte utskriften. Håll ett öga på fönstret &mdash; det stannar och väntar på dig några gånger, och om disken nästan är full frågar det innan det rensar.",
 
-    s5_title:"Allt är klart",
+    mac_s5_title:"Allt är klart", win_s5_title:"Nästan klart \u2014 en sida kvar att bevisa det",
     s5_lead:"Installeraren skickade redan en sida. Bevisa det nu med en egen.",
     s5_test_t:"Testa nu",
     s5_test_d:"Skicka en riktig sida till skrivaren, precis som du kommer göra varje dag. Bättre att hitta ett problem här än på något du faktiskt behöver.",
