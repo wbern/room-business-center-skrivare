@@ -355,8 +355,7 @@
     <a href="mailto:william@bernting.se" class="text-navy hover:text-brand underline underline-offset-2 transition-colors">william@bernting.se</a>
   </p>
 
-  <!-- Admin-only, and kept deliberately dull so nobody else clicks it: the
-       one-liner that exports printer-config.dat from an already-working PC. -->
+  <!-- Admin-only: captures a verified working-PC baseline for support. -->
   <p>
     <button onclick="toggleAdmin()" class="text-slate-300 hover:text-slate-500 underline underline-offset-2 transition-colors bg-transparent"
       data-i18n="admin_link">Admin</button>
@@ -462,7 +461,7 @@ const I18N = {
     footer:"ROOM Business Center · Olivetti MF224",
     support:"Stuck? Email",
     admin_link:"Admin",
-    admin_hint:"Admin only: run this in an <strong class=\"text-slate-500\">Administrator</strong> PowerShell on a PC where printing already works. It saves printer-config.dat to the Desktop &mdash; commit that into docs/ and everyone else skips the Configure tab.",
+    admin_hint:"Admin only: run this in an <strong class=\"text-slate-500\">Administrator</strong> PowerShell on a PC that has just printed successfully. It creates one Desktop ZIP with the safe printer configuration plus driver and port details. Send that ZIP for comparison; it contains no initials or PIN.",
     s1_pick_os:"Which computer are you on?",
   },
   sv: {
@@ -519,7 +518,7 @@ const I18N = {
     footer:"ROOM Business Center · Olivetti MF224",
     support:"Fastnat? Mejla",
     admin_link:"Admin",
-    admin_hint:"Endast admin: kör detta i en PowerShell <strong class=\"text-slate-500\">som administratör</strong> på en dator där utskrift redan fungerar. Den sparar printer-config.dat på skrivbordet &mdash; lägg in den i docs/ så slipper alla andra Configure-fliken.",
+    admin_hint:"Endast admin: kör detta i en PowerShell <strong class=\"text-slate-500\">som administratör</strong> på en dator som nyss har skrivit ut korrekt. Den skapar en ZIP på skrivbordet med säker skrivarkonfiguration samt drivrutins- och portuppgifter. Skicka ZIP-filen för jämförelse; den innehåller inga initialer eller PIN-koder.",
     s1_pick_os:"Vilken dator sitter du vid?",
   }
 };
@@ -582,9 +581,9 @@ function copyCmd(){
   });
 }
 
-// ---- admin: export the golden driver config ---------------------------------
-// Run on ONE Windows PC that already prints, then commit the resulting
-// printer-config.dat into docs/ so every later install skips the Configure tab.
+// ---- admin: capture a verified working-PC baseline --------------------------
+// The export script creates a shareable ZIP with the global configuration and
+// redacted driver/port evidence; it never exports per-user credentials.
 const ADMIN_EXPORT_URL = "https://pages.bernting.se/room-business-center-skrivare/export_golden_config.ps1";
 function toggleAdmin(){
   const box = document.getElementById('admin-box');

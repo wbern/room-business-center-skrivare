@@ -22,8 +22,8 @@ All site files live under `docs/`.
 | `km-c250i-driver.pkg` | The Konica Minolta C250i Mac driver (47 MB, signed by KM). Extracted from `IT6PSMACOS_536AMU.dmg`; installs the `KONICAMINOLTAC250i` PPD. |
 | **Windows** | |
 | `install.ps1` | The installer proper — reached via `boot.ps1`, never fetched directly (see below). Bilingual EN/SV. Self-elevates (UAC), prompts for initials + PIN, downloads the driver, applies the `RpcAuthnLevelPrivacyEnabled=0` registry fix + Olivetti PS driver, replays `printer-config.dat`, then opens the driver's auth dialog for the PIN. Original reference: `printer-windows-setup/web_install.ps1` (kept on disk only, gitignored). |
-| `printer-config.dat` | **Not committed yet — see "Windows auth" below.** The golden driver configuration (`PrinterDriverData` + global DevMode), captured once with `export_golden_config.ps1`. Carries the `Device Option → User Authentication = On` flag so users never touch the Configure tab. Contains no credentials. |
-| `export_golden_config.ps1` | Admin-only, run once on a working PC to produce `printer-config.dat`. Not linked from the page. |
+| `printer-config.dat` | The golden driver configuration (`PrinterDriverData` + global DevMode), captured from a verified working PC with `export_golden_config.ps1`. Carries the `Device Option → User Authentication = On` flag so users never touch the Configure tab. Contains no credentials. |
+| `export_golden_config.ps1` | Admin-only working-PC baseline collector. Produces `printer-config.dat` plus a shareable ZIP with safe driver, port and configuration fingerprints. Linked from the discreet Admin control. |
 | `capture_pjl.ps1` | Admin-only diagnostic: dumps the PJL header the driver really sends. Not linked from the page. |
 | `boot.ps1` | **What the Windows one-liner actually runs.** Pure ASCII by necessity: Windows PowerShell 5.1 decodes a charset-less HTTP response as ISO-8859-1, and GitHub Pages serves `.ps1` as `application/octet-stream` with no charset — so fetching `install.ps1` directly with `irm` would mojibake every `å ä ö`. `boot.ps1` survives that by being ASCII, then re-downloads `install.ps1` as raw bytes and decodes it as UTF-8. **Never put a non-ASCII character in this file**, and keep `install.ps1` UTF-8 **without** BOM. |
 | `printer-driver-win-x64.zip` | Olivetti Universal PS v3.9.12 driver, x64 only (52 MB). Zipped from `printer-windows-setup/GEUPDPSWin_3912040MU/driver/win_x64`; INF `KOAWNAA_.inf` at the zip root. Fetched at runtime by `install.ps1`. |
@@ -100,12 +100,14 @@ All site files live under `docs/`.
   # on a Windows machine where printing already works, as Administrator:
   irm https://pages.bernting.se/room-business-center-skrivare/export_golden_config.ps1 | iex
   ```
-  It writes `printer-config.dat` to that machine's Desktop. Copy it here and:
+  It writes `printer-config.dat` and a dated `olivetti-working-baseline_*.zip`
+  to that machine's Desktop. Send the ZIP for troubleshooting; copy the `.dat`
+  here when you want to publish the verified configuration:
   ```sh
   git add docs/printer-config.dat && git commit -m "Add golden driver config" && git push
   ```
-  Leave the credential fields empty before exporting. The export uses `/Ss … d g`
-  and never `u` (per-user DevMode), so no PIN can end up in the published file.
+  The export uses `/Ss … d g` and never `u` (per-user DevMode), so it does not
+  read or publish the user's initials or PIN.
   Until it exists, `install.ps1` detects the 404 and walks users through the
   Configure tab by hand instead.
 
