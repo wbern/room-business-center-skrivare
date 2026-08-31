@@ -66,7 +66,7 @@ $BootUrl   = if ($env:PRINTER_BOOT_URL)   { $env:PRINTER_BOOT_URL }   else { "$S
 $DriverUrl = if ($env:PRINTER_DRIVER_URL) { $env:PRINTER_DRIVER_URL } else { "$Site/printer-driver-win-x64.zip" }
 $ConfigUrl = if ($env:PRINTER_CONFIG_URL) { $env:PRINTER_CONFIG_URL } else { "$Site/printer-config.dat" }
 $DriverInf = "KOAWNAA_.inf"                       # INF at the root of the zip
-$DriverName = "Generic Universal PS v3.9.12"      # name the Olivetti PS build registers as
+$DriverName = "Generic Universal PS"               # verified working name from KOAWNAA_.inf
 # -----------------------------------------------------------------------------
 
 # Same caveat as boot.ps1: under `irm | iex` this is the caller's scope, so the
@@ -121,6 +121,7 @@ en = @{
     spooler         = "restarting the Print Spooler..."
     spooler_done    = "spooler restarted"
     driver_present  = "printer driver already installed ({0}) - skipping the 52 MB download"
+    driver_legacy   = "found a different Universal PS driver ({0}); installing the verified Generic Universal PS driver instead."
     driver_dl       = "downloading the printer driver (one-time, ~52 MB)..."
     disk_need       = "only {0} MB free on {2}, and the driver needs about {1} MB while it installs."
     disk_scan       = "looking for files Windows can safely delete..."
@@ -149,7 +150,7 @@ en = @{
     driver_not_staged = "Windows refused to stage the driver into its driver store - trying other routes."
     driver_fallback = "trying the alternative driver install route..."
     pnputil_warn    = "pnputil returned {0} while adding the driver; continuing."
-    driver_none     = "the driver installed but Windows didn't register a Universal PS driver. See the list above."
+    driver_none     = "the driver installed but Windows didn't register Generic Universal PS. See the list above."
     drivers_known   = "  Drivers Windows currently knows about:"
     driver_ok       = "driver installed: {0}"
     queue_ok        = "the printer is already set up correctly - keeping it (your saved login stays)"
@@ -165,8 +166,8 @@ en = @{
     avail_drivers   = "  Available PostScript drivers:"
     add_failed      = "couldn't add the printer with driver '{0}'. See the list above."
     added           = "printer added: {0}"
-    bidi_ok         = "bidirectional / SNMP enabled"
-    bidi_fail       = "couldn't enable bidirectional/SNMP (not fatal) - {0}"
+    bidi_ok         = "bidirectional support enabled; SNMP disabled to match the verified port"
+    bidi_fail       = "couldn't set bidirectional support/SNMP off (not fatal) - {0}"
     default_ok      = "set as your default printer"
     cfg_looking     = "looking for the shared printer configuration..."
     cfg_timeout     = "the configuration restore didn't finish (it may have shown a dialog)."
@@ -257,6 +258,7 @@ sv = @{
     spooler         = "startar om utskriftshanteraren..."
     spooler_done    = "utskriftshanteraren omstartad"
     driver_present  = "skrivardrivrutinen finns redan ({0}) - hoppar över nedladdningen på 52 MB"
+    driver_legacy   = "hittade en annan Universal PS-drivrutin ({0}); installerar den verifierade Generic Universal PS-drivrutinen i stället."
     driver_dl       = "laddar ner skrivardrivrutinen (engångsjobb, ca 52 MB)..."
     disk_need       = "bara {0} MB ledigt på {2}, och drivrutinen behöver ungefär {1} MB under installationen."
     disk_scan       = "letar efter filer som Windows kan ta bort utan risk..."
@@ -285,7 +287,7 @@ sv = @{
     driver_not_staged = "Windows vägrade lägga drivrutinen i sitt drivrutinsarkiv - provar andra vägar."
     driver_fallback = "provar den alternativa installationsvägen för drivrutinen..."
     pnputil_warn    = "pnputil svarade {0} när drivrutinen lades till; fortsätter."
-    driver_none     = "drivrutinen installerades men Windows registrerade ingen Universal PS-drivrutin. Se listan ovan."
+    driver_none     = "drivrutinen installerades men Windows registrerade inte Generic Universal PS. Se listan ovan."
     drivers_known   = "  Drivrutiner som Windows känner till just nu:"
     driver_ok       = "drivrutin installerad: {0}"
     queue_ok        = "skrivaren är redan korrekt uppsatt - behåller den (din sparade inloggning ligger kvar)"
@@ -301,8 +303,8 @@ sv = @{
     avail_drivers   = "  Tillgängliga PostScript-drivrutiner:"
     add_failed      = "kunde inte lägga till skrivaren med drivrutinen '{0}'. Se listan ovan."
     added           = "skrivare tillagd: {0}"
-    bidi_ok         = "dubbelriktad kommunikation / SNMP aktiverat"
-    bidi_fail       = "kunde inte aktivera dubbelriktad kommunikation/SNMP (inte kritiskt) - {0}"
+    bidi_ok         = "dubbelriktad kommunikation aktiverad; SNMP avstängt enligt den verifierade porten"
+    bidi_fail       = "kunde inte ställa in dubbelriktad kommunikation/SNMP av (inte kritiskt) - {0}"
     default_ok      = "vald som din standardskrivare"
     cfg_looking     = "letar efter den gemensamma skrivarkonfigurationen..."
     cfg_timeout     = "återställningen av konfigurationen blev inte klar (den kan ha visat en dialogruta)."
@@ -544,29 +546,34 @@ Restart-Service -Name Spooler -Force
 Start-Sleep -Seconds 2
 Ok (T 'spooler_done')
 
-# 6) Find the driver — and only download it if it isn't already here.
-# The name it registers under varies by package: the Olivetti build calls itself
-# "Generic Universal PS v3.9.12", the Konica Minolta build "KONICA MINOLTA
-# Universal PS". Same universal PostScript driver, both emit the KM auth PJL, so
-# match any of them rather than hardcoding one and failing at Add-Printer.
-function Resolve-KmDriver {
+# 6) Use the exact driver proven on the working baseline PC. A similarly named
+# Konica driver can remain installed for other queues, but must not silently win
+# this queue just because it was present first.
+function Resolve-WorkingDriver {
     $installed = @(Get-PrinterDriver -ErrorAction SilentlyContinue)
-    foreach ($want in @($DriverName, "KONICA MINOLTA Universal PS", "Generic Universal PS")) {
+    foreach ($want in @($DriverName)) {
         $hit = $installed | Where-Object { $_.Name -eq $want } | Select-Object -First 1
         if ($hit) { return $hit.Name }
     }
-    $hit = $installed |
-        Where-Object { $_.Name -like "*Universal PS*" -or $_.Name -like "*Universal*PostScript*" } |
-        Select-Object -First 1
-    if ($hit) { return $hit.Name }
     return $null
 }
 
+function Find-OtherUniversalPsDriver {
+    Get-PrinterDriver -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Name -ne $DriverName -and
+            ($_.Name -like "*Universal PS*" -or $_.Name -like "*Universal*PostScript*")
+        } |
+        Select-Object -First 1
+}
+
 $work = $null      # only set if we actually download; cleanup below checks it
-$resolvedDriver = Resolve-KmDriver
+$resolvedDriver = Resolve-WorkingDriver
 if ($resolvedDriver) {
     Ok (T 'driver_present' @($resolvedDriver))
 } else {
+    $legacyDriver = Find-OtherUniversalPsDriver
+    if ($legacyDriver) { Warn (T 'driver_legacy' @($legacyDriver.Name)) }
     # Disk space, checked BEFORE the 52 MB download. Installing this driver
     # briefly needs several times its download size: the zip, our extraction,
     # pnputil's own temp copy of the package, and finally the expanded copy in
@@ -712,24 +719,15 @@ if ($resolvedDriver) {
 
     # Staging the INF into the driver store is NOT enough. The print spooler
     # keeps its own separate list, and Get-PrinterDriver / Add-Printer only see
-    # drivers registered with Add-PrinterDriver. On a machine that has never had
-    # the Konica package installed, skipping this is why the driver "installed"
-    # but Windows reported no Universal PS driver.
+    # drivers registered with Add-PrinterDriver. Skipping this is why the driver
+    # can look installed while Windows still cannot add the Generic PS queue.
     #
-    # The name to register is read from the INF rather than guessed: this INF
-    # declares "Generic Universal PS" with no version suffix, while the vendor's
-    # own installer registers "Generic Universal PS v3.9.12" and the Konica
-    # build "KONICA MINOLTA Universal PS". Parse first, then fall back.
-    if (-not (Resolve-KmDriver)) {
+    # The known-good PC uses the name declared by this INF: "Generic Universal
+    # PS". Register that exact driver even when another Universal PS variant is
+    # already present, so this queue has a repeatable driver baseline.
+    if (-not (Resolve-WorkingDriver)) {
         Info (T 'driver_register')
-        $infNames = @()
-        try {
-            $infNames = @(Get-Content $inf -ErrorAction Stop | ForEach-Object {
-                if ($_ -match '^\s*"([^"]+)"\s*=') { $Matches[1] }
-            } | Select-Object -Unique)
-        } catch { }
-        $candidates = @($infNames + @("Generic Universal PS", $DriverName, "KONICA MINOLTA Universal PS")) |
-            Where-Object { $_ } | Select-Object -Unique
+        $candidates = @($DriverName)
 
         # Prefer the copy pnputil staged into the driver store over our temp
         # extraction: Add-PrinterDriver resolves names against the store, and the
@@ -763,7 +761,7 @@ if ($resolvedDriver) {
         # succeeds where Add-PrinterDriver won't. It reports failure only through
         # dialogs, hence /q plus a bounded wait, and we judge it by whether the
         # driver actually appears afterwards.
-        if (-not (Resolve-KmDriver)) {
+        if (-not (Resolve-WorkingDriver)) {
             Info (T 'driver_fallback')
             foreach ($cand in $candidates) {
                 try {
@@ -771,12 +769,12 @@ if ($resolvedDriver) {
                         "printui.dll,PrintUIEntry", "/ia", "/q", "/m", "`"$cand`"", "/f", "`"$inf`""
                     if (-not $p.WaitForExit(90000)) { try { $p.Kill() } catch {} }
                 } catch { }
-                if (Resolve-KmDriver) { Ok (T 'driver_registered' @($cand)); break }
+                if (Resolve-WorkingDriver) { Ok (T 'driver_registered' @($cand)); break }
             }
         }
     }
 
-    $resolvedDriver = Resolve-KmDriver
+    $resolvedDriver = Resolve-WorkingDriver
     if (-not $resolvedDriver) {
         Write-Host (T 'drivers_known') -ForegroundColor Yellow
         Get-PrinterDriver | Select-Object -ExpandProperty Name | ForEach-Object { Write-Host "    $_" }
@@ -874,10 +872,11 @@ if (-not $queueHealthy) {
     Ok (T 'added' @($PrinterName))
 }
 
-# 11) Enable bidirectional + SNMP (MFP auth feature detection).
+# 11) Keep bidirectional support but disable SNMP. The verified working port is
+# RAW 9100 with SNMP off; this avoids changing the port's working baseline.
 try {
     Set-Printer -Name $PrinterName -EnableBidirectional $true
-    Set-PrinterPort -Name $portName -SNMP 1 -SNMPCommunity "public" -ErrorAction SilentlyContinue
+    Set-PrinterPort -Name $portName -SNMP 0 -ErrorAction SilentlyContinue
     Ok (T 'bidi_ok')
 } catch {
     Warn (T 'bidi_fail' @($_.Exception.Message))

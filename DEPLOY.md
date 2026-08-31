@@ -121,12 +121,11 @@ All site files live under `docs/`.
   it to **both** language blocks with matching `{0}` placeholders — a missing key
   silently falls back to English.
 
-- **Driver name varies by package.** The Olivetti build registers as
-  `Generic Universal PS v3.9.12`, the Konica Minolta build as
-  `KONICA MINOLTA Universal PS`. Both are the same universal PostScript driver.
-  `install.ps1` resolves whichever is present instead of hardcoding one (that
-  mismatch made `Add-Printer` fail outright on a machine that already had the
-  KM package installed), and skips the 52 MB download when one is already there.
+- **Windows driver baseline.** The verified working PC uses `Generic Universal
+  PS` from `KOAWNAA_.inf`, on a RAW 9100 port with SNMP disabled. The installer
+  deliberately installs and uses that exact driver instead of silently reusing
+  an existing Konica Universal PS variant; it leaves old driver packages alone
+  so unrelated printer queues are not disrupted.
 
 - **Windows diagnostics:** `docs/capture_pjl.ps1` clones the queue onto a
   loopback port and dumps the PJL header the driver actually emits, checking it
